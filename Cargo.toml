@@ -1,0 +1,7 @@
+[package]
+name = "chml"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chml_api = { path = "../chml_api" }
