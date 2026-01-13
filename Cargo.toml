@@ -2,6 +2,13 @@
 name = "chml"
 version = "0.1.0"
 edition = "2024"
+description = "A CLI tool for chml"
+authors = ["fb0sh <fb0sh@outlook.com>"]
+license = "MIT"
+repository = "https://github.com/fb0sh/chml"
+readme = "README.md"
+keywords = ["chml", "cli"]
+categories = ["command-line-utilities"]
 
 [dependencies]
-chml_api = { path = "../chml_api" }
+# chml_api = { path = "../chml_api" }
