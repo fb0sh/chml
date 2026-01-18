@@ -11,4 +11,16 @@ keywords = ["chml", "cli"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-# chml_api = { path = "../chml_api" }
+chml_api = "0.5.0"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.13.1", features = ["json", "query"] }
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+dotenvy = "0.15.7"
+dirs-next = "2.0.0"
+anyhow = "1"
+clap = { version="4.5.54", features = ["derive"]}
+rand = "0.9.2"
