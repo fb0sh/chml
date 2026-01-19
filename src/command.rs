@@ -1,7 +1,10 @@
 use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(name = "chml")]
-#[command(about = "A cli tool for Chmlfrp; https://www.chmlfrp.net", long_about = None)]
+#[command(
+    version = concat!(env!("CARGO_PKG_VERSION"), " by ", env!("CARGO_PKG_AUTHORS"))
+)]
+#[command(author = env!("CARGO_PKG_AUTHORS"),about = "A cli tool for Chmlfrp; https://www.chmlfrp.net", long_about = None)]
 pub struct Cli {
     #[arg(short, long, global = true)]
     pub quiet: bool,
