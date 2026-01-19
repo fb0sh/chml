@@ -25,7 +25,9 @@ pub enum Commands {
     /// connect a tunnel
     Connect {
         #[arg(short = 't', long)]
-        tunnel: String,
+        tunnel: Option<String>,
+        #[arg(short = 'i', long)]
+        tunnel_id: Option<u64>,
         #[arg(short, long)]
         daemon: bool, // todo
     },

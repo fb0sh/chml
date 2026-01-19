@@ -1,20 +1,19 @@
-use std::cmp;
+use std::{cmp, ops::Deref};
 
 use crate::{
     command::{Add, Cli, Commands},
     config::{self, AppHome},
     util::{self, print},
 };
-
 use anyhow::anyhow;
 use chml_api::{
     ChmlApi, domain::function::CreateDomainParams, schema, tunnel::function::CreateTunnelParams,
 };
+use tokio::signal;
 use tokio::{
     fs,
     io::{AsyncBufReadExt, BufReader},
     process::Command,
-    signal,
 };
 
 pub async fn prepare_frpc(app_home: &AppHome, is_quiet: bool) -> anyhow::Result<()> {
@@ -127,89 +126,45 @@ pub async fn handle_command(cli: Cli, app_home: &AppHome, chml: &ChmlApi) -> any
             println!("{}", tunnel_config);
             println!();
         }
-        Commands::Connect { tunnel, daemon } => {
-            // 总是下载新的配置文件 实现多端同步配置
-            let tunnel_node = chml
-                .tunnel()
-                .await?
-                .into_result()?
-                .iter()
-                .find(|t| t.name.contains(&tunnel))
-                .ok_or(anyhow!("{} not found", tunnel))?
-                .node
-                .clone();
+        Commands::Connect {
+            tunnel,
+            daemon,
+            tunnel_id,
+        } => {
+            // 1. 总是拉取最新 tunnel 列表（用于多端同步）
+            let the_tunnel = chml._select_tunnel(tunnel.as_deref(), tunnel_id).await?;
+
+            let tunnel_name = &the_tunnel.name;
+            let tunnel_node = the_tunnel.node.clone();
 
             let tunnel_config = chml
-                .tunnel_config(&tunnel_node, &[&tunnel])
+                .tunnel_config(&tunnel_node, &[tunnel_name])
                 .await?
                 .into_result()?;
 
             let config_path = app_home
                 .join_dir("conf")?
-                .join(format!("{}.frpc.ini", tunnel));
+                .join(format!("{}.frpc.ini", tunnel_name));
 
             fs::write(&config_path, tunnel_config).await?;
+
             if !cli.quiet {
                 println!(
                     "[+] Tunnel({}) frpc config file has been downloaded at {}\n",
-                    &tunnel,
+                    tunnel_name,
                     &config_path.display()
                 );
             }
 
             let bin_path = app_home.join_dir("bin")?.join(config::bin_name());
-            // ~/.chml/bin/frpc_macos_aarch64 --config ~/.chml/conf/55555.frpc.ini
-            // bin_path --config config_path
-            //
-            let mut child = Command::new(&bin_path)
-                .arg("--config")
-                .arg(&config_path)
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
-                .spawn()?; // 异步启动
 
-            fn mask_middle(s: &str) -> String {
-                if s.len() <= 8 {
-                    "*".repeat(s.len())
-                } else {
-                    let start = &s[..4];
-                    let end = &s[s.len() - 4..];
-                    let middle_len = s.len() - 8;
-                    format!("{}{}{}", start, "*".repeat(middle_len), end)
-                }
-            }
+            let mut child =
+                spawn_frpc(&bin_path, &config_path, chml.get_token()?.to_owned()).await?;
 
-            let stdout_token = chml.get_token()?.to_string();
-            let stderr_token = stdout_token.clone();
-            // 异步打印 stdout
-            if let Some(stdout) = child.stdout.take() {
-                let mut reader = BufReader::new(stdout).lines();
-                tokio::spawn(async move {
-                    while let Ok(Some(mut line)) = reader.next_line().await {
-                        if line.contains(&stdout_token) {
-                            // 这里简单处理整行为 token mask
-                            let masked_token = mask_middle(&stdout_token);
-                            line = line.replace(&stdout_token, &masked_token);
-                        }
-                        println!("[frpc stdout] {}", line);
-                    }
-                });
-            }
-            if let Some(stderr) = child.stderr.take() {
-                let mut reader = BufReader::new(stderr).lines();
-                tokio::spawn(async move {
-                    while let Ok(Some(mut line)) = reader.next_line().await {
-                        if line.contains(&stderr_token) {
-                            // 这里简单处理整行为 token mask
-                            let masked_token = mask_middle(&stderr_token);
-                            line = line.replace(&stderr_token, &masked_token);
-                        }
-                        eprintln!("[frpc stderr] {}", line);
-                    }
-                });
-            }
+            print::print_user_tunnels(&[the_tunnel.clone()]);
             child.wait().await.ok();
         }
+
         Commands::Add { resource } => match resource {
             // Add::Domain {
             //     record,
@@ -291,17 +246,20 @@ pub async fn handle_command(cli: Cli, app_home: &AppHome, chml: &ChmlApi) -> any
         }
 
         Commands::Tcp { port } => {
+            let tunnel_name = format!("quick_chml_{}", util::random_string(4));
+            let tunnel_node = util::random_node(chml, None, None, Some(true)).await?; // selectable
+            let remote_port = util::random_port();
             let mut ctp = CreateTunnelParams {
                 token: chml.get_token()?.to_string(),
-                tunnelname: format!("quick_chml_{}", util::random_string(4)),
-                node: util::random_node(chml, None, None, Some(true)).await?.name, // selectable
+                tunnelname: tunnel_name.clone(),
+                node: tunnel_node.name.clone(),
                 localip: "127.0.0.1".to_string(),
                 port_type: "TCP".to_string(),
                 local_port: port,
                 encryption: false,
                 compression: false,
                 extra_params: "".to_string(),
-                remote_port: util::random_port(),
+                remote_port: remote_port,
             };
 
             loop {
@@ -310,14 +268,160 @@ pub async fn handle_command(cli: Cli, app_home: &AppHome, chml: &ChmlApi) -> any
                     ctp.remote_port = util::random_port();
                     continue;
                 }
-
-                let tunnel = tunnel.into_result()?;
-                print::print_user_tunnels(&[tunnel]);
                 break;
             }
+
+            let tunnel_config = chml
+                .tunnel_config(&tunnel_node.name, &[&tunnel_name])
+                .await?
+                .into_result()?;
+
+            let config_path = app_home
+                .join_dir("conf")?
+                .join(format!("{}.frpc.ini", tunnel_name));
+
+            fs::write(&config_path, tunnel_config).await?;
+
+            let bin_path = app_home.join_dir("bin")?.join(config::bin_name());
+            let tunnel = chml._select_tunnel(Some(&tunnel_name), None).await?;
+            let tunnel_id = tunnel.id;
+            print::print_user_tunnels(&[tunnel]);
+
+            let mut child =
+                spawn_frpc(&bin_path, &config_path, chml.get_token()?.to_owned()).await?;
+
+            tokio::select! {
+                _ = signal::ctrl_c() => {
+                    eprintln!("\n[!] Ctrl+C received, shutting down frpc and remove{}, delete tunnel {}...", &config_path.display(), &tunnel_id.unwrap());
+
+                    // 删除隧道和配置文件
+                    let _ = tokio::fs::remove_file(&config_path).await;
+                    let _ = chml.delete_tunnel(&tunnel_id.unwrap().to_string()).await;
+                    let _ = child.kill().await;
+                }
+
+                status = child.wait() => {
+                    eprintln!("[!] frpc exited: {:?}", status);
+                }
+            }
         }
-        Commands::Http { port } => {}
-        Commands::Udp { port } => {}
+        Commands::Http { port } => {
+            unreachable!("Use tcp port")
+        }
+        Commands::Udp { port } => {
+            let tunnel_name = format!("quick_chml_{}", util::random_string(4));
+            let tunnel_node = util::random_node(chml, None, Some(true), Some(true)).await?; // selectable
+            let remote_port = util::random_port();
+            let mut ctp = CreateTunnelParams {
+                token: chml.get_token()?.to_string(),
+                tunnelname: tunnel_name.clone(),
+                node: tunnel_node.name.clone(),
+                localip: "127.0.0.1".to_string(),
+                port_type: "UDP".to_string(),
+                local_port: port,
+                encryption: false,
+                compression: false,
+                extra_params: "".to_string(),
+                remote_port: remote_port,
+            };
+
+            loop {
+                let tunnel = chml.create_tunnel(&ctp).await?;
+                if tunnel.code == 409 {
+                    ctp.remote_port = util::random_port();
+                    continue;
+                }
+                break;
+            }
+
+            let tunnel_config = chml
+                .tunnel_config(&tunnel_node.name, &[&tunnel_name])
+                .await?
+                .into_result()?;
+
+            let config_path = app_home
+                .join_dir("conf")?
+                .join(format!("{}.frpc.ini", tunnel_name));
+
+            fs::write(&config_path, tunnel_config).await?;
+
+            let bin_path = app_home.join_dir("bin")?.join(config::bin_name());
+            let tunnel = chml._select_tunnel(Some(&tunnel_name), None).await?;
+            let tunnel_id = tunnel.id;
+            print::print_user_tunnels(&[tunnel]);
+
+            let mut child =
+                spawn_frpc(&bin_path, &config_path, chml.get_token()?.to_owned()).await?;
+
+            tokio::select! {
+                _ = signal::ctrl_c() => {
+                    eprintln!("\n[!] Ctrl+C received, shutting down frpc and remove{}, delete tunnel {}...", &config_path.display(), &tunnel_id.unwrap());
+
+                    // 删除隧道和配置文件
+                    let _ = tokio::fs::remove_file(&config_path).await;
+                    let _ = chml.delete_tunnel(&tunnel_id.unwrap().to_string()).await;
+                    let _ = child.kill().await;
+                }
+
+                status = child.wait() => {
+                    eprintln!("[!] frpc exited: {:?}", status);
+                }
+            }
+        }
     }
     Ok(())
+}
+
+async fn spawn_frpc(
+    bin_path: &std::path::Path,
+    config_path: &std::path::Path,
+    token: String,
+) -> anyhow::Result<tokio::process::Child> {
+    // token 脱敏函数
+    fn mask_middle(s: &str) -> String {
+        if s.len() <= 8 {
+            "*".repeat(s.len())
+        } else {
+            let start = &s[..4];
+            let end = &s[s.len() - 4..];
+            let middle_len = s.len() - 8;
+            format!("{}{}{}", start, "*".repeat(middle_len), end)
+        }
+    }
+
+    let mut child = Command::new(bin_path)
+        .arg("--config")
+        .arg(config_path)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()?;
+
+    // stdout
+    if let Some(stdout) = child.stdout.take() {
+        let token = token.clone();
+        tokio::spawn(async move {
+            let mut reader = BufReader::new(stdout).lines();
+            while let Ok(Some(mut line)) = reader.next_line().await {
+                if line.contains(&token) {
+                    line = line.replace(&token, &mask_middle(&token));
+                }
+                println!("[frpc stdout] {}", line);
+            }
+        });
+    }
+
+    // stderr
+    if let Some(stderr) = child.stderr.take() {
+        tokio::spawn(async move {
+            let mut reader = BufReader::new(stderr).lines();
+            while let Ok(Some(mut line)) = reader.next_line().await {
+                if line.contains(&token) {
+                    line = line.replace(&token, &mask_middle(&token));
+                }
+                eprintln!("[frpc stderr] {}", line);
+            }
+        });
+    }
+
+    Ok(child)
 }

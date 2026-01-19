@@ -1,6 +1,6 @@
 [package]
 name = "chml"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 description = "A CLI tool for chml"
 authors = ["fb0sh <fb0sh@outlook.com>"]
@@ -11,7 +11,7 @@ keywords = ["chml", "cli"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-chml_api = "0.5.0"
+chml_api = "0.6.0"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -22,5 +22,5 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 dotenvy = "0.15.7"
 dirs-next = "2.0.0"
 anyhow = "1"
-clap = { version="4.5.54", features = ["derive"]}
+clap = { version = "4.5.54", features = ["derive"] }
 rand = "0.9.2"
