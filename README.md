@@ -4,11 +4,13 @@
 
 ## 功能特性
 
-- 🚀 快速创建和管理隧道（TCP/UDP/HTTP）
+- 🚀 快速创建和管理隧道（TCP/UDP）
 - 📋 列出隧道、域名和节点信息
 - 🔗 一键连接隧道
 - ⚙️ 获取隧道配置文件
 - 🎯 快捷命令：快速创建常见类型的隧道
+- 📊 节点延迟测试与智能选择
+- 🧹 快速隧道：自动清理临时隧道
 
 ## 安装
 
@@ -34,7 +36,7 @@ cargo install --path .
 
 ```bash
 export CHML_API_BASE_URL="http://cf-v2.uapis.cn"
-export CHML_API_TOKEN="YkJ31tP6Ev4HCSlP2D6Ifc0e"
+export CHML_API_TOKEN="your_token_here"
 ```
 
 你可以将这些环境变量添加到你的 shell 配置文件中（如 `~/.zshrc` 或 `~/.bashrc`）。
@@ -47,9 +49,6 @@ export CHML_API_TOKEN="YkJ31tP6Ev4HCSlP2D6Ifc0e"
 chml --help
 ```
 
-<img width="670" height="562" alt="image" src="https://github.com/user-attachments/assets/ae8d6e19-1139-4583-be83-21891a83de6a" />
-
-
 ### 列出资源
 
 列出所有隧道和域名（默认）：
@@ -57,8 +56,6 @@ chml --help
 ```bash
 chml ls
 ```
-
-<img width="1301" height="557" alt="image" src="https://github.com/user-attachments/assets/a4427558-06d1-46f9-9a4e-214b0c368715" />
 
 仅列出隧道：
 
@@ -72,66 +69,48 @@ chml ls -t
 chml ls -d
 ```
 
-仅列出节点：
+仅列出节点（需要先运行 `chml ping`）：
 
 ```bash
 chml ls -n
 ```
-<img width="1255" height="782" alt="image" src="https://github.com/user-attachments/assets/800f6cbc-9728-459c-95d8-9ca3ebc887ad" />
 
 列出所有配置文件：
 
 ```bash
 chml ls -c
 ```
-<img width="1056" height="131" alt="image" src="https://github.com/user-attachments/assets/0407a5f8-23f0-4380-b1e6-e653170c94b1" />
-
-列出全部
-```bash
-chml ls -tdnc
-```
 
 ### 快速创建隧道
 
-创建 TCP 隧道：
+创建 TCP 隧道（自动连接，Ctrl+C 后自动删除）：
 
 ```bash
 chml tcp 4444
 ```
-<img width="1327" height="295" alt="image" src="https://github.com/user-attachments/assets/b9a24024-c34e-4d01-ad04-1983b9e2b8a9" />
 
-<img width="419" height="273" alt="image" src="https://github.com/user-attachments/assets/826703b0-de26-44c3-92fb-0ecc6f1bec27" />
-
-会自动进行删除隧道和配置文件
-
-<img width="1277" height="357" alt="image" src="https://github.com/user-attachments/assets/c9a9d387-1464-4559-ad49-26aaf9674d25" />
-
-创建 UDP 隧道：
+创建 UDP 隧道（自动连接，Ctrl+C 后自动删除）：
 
 ```bash
 chml udp 4444
 ```
 
-创建 HTTP 隧道：（直接使用tcp）
+### 节点延迟测试
+
+测试所有节点延迟并缓存（需要 sudo 权限）：
 
 ```bash
-chml http 8080
+chml ping
 ```
+
+此命令会测量所有节点的 RTT（往返时间）并缓存结果，用于智能选择延迟最低的节点。
+
 ### 添加隧道
 
 添加一个 TCP 隧道：
 
 ```bash
 chml add tunnel --type tcp --lport 4444 --name my-tunnel
-```
-
-<img width="1191" height="215" alt="image" src="https://github.com/user-attachments/assets/66ac13f6-ddac-4edf-893d-b0a4a7eb7c43" />
-
-
-添加一个 HTTP 隧道：
-
-```bash
-chml add tunnel --type http --lport 8080 --name my-http
 ```
 
 指定节点和远程端口：
@@ -146,6 +125,11 @@ chml add tunnel --type tcp --lport 4444 --node "节点名称" --rport 88888
 chml add tunnel --type tcp --lport 4444 --lhost 127.0.0.1
 ```
 
+仅选择国内节点：
+
+```bash
+chml add tunnel --type tcp --lport 4444 --china
+```
 
 ### 连接隧道
 
@@ -154,19 +138,11 @@ chml add tunnel --type tcp --lport 4444 --lhost 127.0.0.1
 ```bash
 chml connect -t my-tunnel
 ```
-<img width="1226" height="264" alt="image" src="https://github.com/user-attachments/assets/2b6d0b62-2ba2-4942-b542-d9425aa5c35d" />
-
 
 通过隧道 ID 连接：
 
 ```bash
 chml connect -i 12345
-```
-
-后台运行（守护进程模式）：(暂不支持)
-
-```bash
-chml connect -t my-tunnel --daemon
 ```
 
 ### 获取隧道配置
@@ -176,9 +152,6 @@ chml connect -t my-tunnel --daemon
 ```bash
 chml get -t my-tunnel
 ```
-
-<img width="1025" height="344" alt="image" src="https://github.com/user-attachments/assets/d196e487-c550-4039-b097-9837f867829c" />
-
 
 ### 删除隧道
 
@@ -214,11 +187,11 @@ chml -q connect -t my-tunnel
 | `chml ls -c` | 列出配置文件 |
 | `chml tcp <port>` | 快速创建 TCP 隧道 |
 | `chml udp <port>` | 快速创建 UDP 隧道 |
-| `chml http <port>` | 快速创建 HTTP 隧道 |
 | `chml add tunnel` | 添加隧道 |
 | `chml connect -t <name>` | 连接隧道 |
 | `chml get -t <name>` | 获取隧道配置 |
 | `chml rm -t <name>` | 删除隧道 |
+| `chml ping` | 测试节点延迟 |
 
 ## 工作目录
 
@@ -231,7 +204,8 @@ chml -q connect -t my-tunnel
 ```
 ~/.chml/
 ├── bin/          # frpc 二进制文件
-└── conf/         # frpc 配置文件
+├── conf/         # frpc 配置文件
+└── data/         # 节点缓存数据
 ```
 
 ## 开发
