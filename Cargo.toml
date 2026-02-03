@@ -1,6 +1,6 @@
 [package]
 name = "chml"
-version = "0.5.0"
+version = "0.7.0"
 edition = "2024"
 description = "A CLI tool for chml"
 authors = ["fb0sh <fb0sh@outlook.com>"]
@@ -11,7 +11,7 @@ keywords = ["chml", "cli"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-chml_api = "0.7.0"
+chml_api = "0.8.0"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
