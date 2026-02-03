@@ -2,6 +2,7 @@ mod download;
 pub use download::download_fpc_client;
 pub mod print;
 mod random;
+pub use random::lowest_rtt_node;
 pub use random::random_node;
 pub use random::random_port;
 pub use random::random_string;

@@ -3,6 +3,8 @@ use std::{cmp, ops::Deref};
 use crate::{
     command::{Add, Cli, Commands},
     config::{self, AppHome},
+    functions::get_ping_nodes,
+    schema::PingNode,
     util::{self, print},
 };
 use anyhow::anyhow;
@@ -85,8 +87,18 @@ pub async fn handle_command(cli: Cli, app_home: &AppHome, chml: &ChmlApi) -> any
             }
 
             if nodes {
-                let nodes = chml.node().await?.into_result()?;
-                print::print_node(&nodes);
+                // let a = get_ping_nodes(chml).await?;
+                let data_dir = app_home.join_dir("data")?;
+                let node_info_cache_path = data_dir.join("nodes.json");
+                if !node_info_cache_path.exists() {
+                    println!("[-] Node cache not found, please run `chml ping` first");
+                    return Ok(());
+                }
+
+                let node_infos = fs::read_to_string(&node_info_cache_path).await?;
+                let node_info_cache: Vec<PingNode> = serde_json::from_str(&node_infos)?;
+
+                print::print_ping_nodes(&node_info_cache);
                 println!();
             }
 
@@ -194,8 +206,11 @@ pub async fn handle_command(cli: Cli, app_home: &AppHome, chml: &ChmlApi) -> any
                 let mut ctp = CreateTunnelParams {
                     token: chml.get_token()?.to_string(),
                     tunnelname: name.unwrap_or(format!("chml_{}", util::random_string(8))),
-                    node: node
-                        .unwrap_or(util::random_node(chml, web, udp, Some(china)).await?.name),
+                    node: node.unwrap_or(
+                        util::lowest_rtt_node(chml, app_home, web, udp, Some(china))
+                            .await?
+                            .name,
+                    ),
                     localip: lhost.unwrap_or("127.0.0.1".to_string()),
                     port_type: r#type.to_uppercase(),
                     local_port: lport,
@@ -247,7 +262,7 @@ pub async fn handle_command(cli: Cli, app_home: &AppHome, chml: &ChmlApi) -> any
 
         Commands::Tcp { port } => {
             let tunnel_name = format!("quick_chml_{}", util::random_string(4));
-            let tunnel_node = util::random_node(chml, None, None, Some(true)).await?; // selectable
+            let tunnel_node = util::lowest_rtt_node(chml, app_home, None, None, Some(true)).await?; // selectable
             let remote_port = util::random_port();
             let mut ctp = CreateTunnelParams {
                 token: chml.get_token()?.to_string(),
@@ -310,7 +325,8 @@ pub async fn handle_command(cli: Cli, app_home: &AppHome, chml: &ChmlApi) -> any
         }
         Commands::Udp { port } => {
             let tunnel_name = format!("quick_chml_{}", util::random_string(4));
-            let tunnel_node = util::random_node(chml, None, Some(true), Some(true)).await?; // selectable
+            let tunnel_node =
+                util::lowest_rtt_node(chml, app_home, None, Some(true), Some(true)).await?; // selectable
             let remote_port = util::random_port();
             let mut ctp = CreateTunnelParams {
                 token: chml.get_token()?.to_string(),
@@ -367,6 +383,19 @@ pub async fn handle_command(cli: Cli, app_home: &AppHome, chml: &ChmlApi) -> any
                     eprintln!("[!] frpc exited: {:?}", status);
                 }
             }
+        }
+
+        Commands::Ping => {
+            //  init a ping-cache data for random-select
+            //  the ping command will enforce update the cache
+            println!("[*] multi-pinging all nodes...");
+            let a = get_ping_nodes(chml).await?;
+            let data_dir = app_home.join_dir("data")?;
+            let node_info_cache_path = data_dir.join("nodes.json");
+            let node_info_cache = serde_json::to_string(&a)?;
+            fs::write(node_info_cache_path, node_info_cache).await?;
+            print::print_ping_nodes(&a);
+            println!("[+] ping cache has been updated");
         }
     }
     Ok(())

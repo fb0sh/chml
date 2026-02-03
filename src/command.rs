@@ -20,6 +20,7 @@ pub enum Commands {
         tunnels: bool,
         #[arg(short = 'd', long)]
         domains: bool,
+        /// list all nodes include RTT <chml ping>
         #[arg(short = 'n', long)]
         nodes: bool,
         #[arg(short = 'c', long)]
@@ -59,6 +60,8 @@ pub enum Commands {
     Udp { port: u16 },
     /// quick http tunnel
     Http { port: u16 },
+    /// print and rebuild node RTT cache (sudo permission required)
+    Ping,
 }
 
 #[derive(Subcommand)]

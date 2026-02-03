@@ -1,3 +1,5 @@
+use crate::schema::PingNode;
+
 use super::color;
 use chml_api::schema;
 pub fn print_user_info(user: &schema::UserInfo) {
@@ -60,16 +62,26 @@ pub fn print_user_tunnels(tunnels: &[schema::Tunnel]) {
     }
 }
 
-pub fn print_node(nodes: &[schema::Node]) {
-    fn inline_print_node(node: &schema::Node) {
+pub fn print_ping_nodes(ping_nodes: &[PingNode]) {
+    fn inline_print_node(ping_node: &PingNode) {
         println!(
-            "(Node:{})\tname={},area={}, china={}, web={}, udp={}, notes={}",
-            node.nodegroup, node.name, node.area, node.china, node.web, node.udp, node.notes
+            "(Node:{})\trtt={}ms,name={},area={},real_ip={}, china={}, web={}, udp={}, notes={}",
+            ping_node.node.nodegroup,
+            ping_node.rtt,
+            ping_node.node.name,
+            ping_node.node.area,
+            ping_node.node_info.real_IP,
+            ping_node.node.china,
+            ping_node.node.web,
+            ping_node.node.udp,
+            ping_node.node.notes
         );
     }
+
     let (vip_nodes, other_nodes): (Vec<_>, Vec<_>) =
-        nodes.into_iter().partition(|n| n.nodegroup == "vip");
+        ping_nodes.iter().partition(|n| n.node.nodegroup == "vip");
 
     other_nodes.iter().map(|n| inline_print_node(n)).count();
+    println!();
     vip_nodes.iter().map(|n| inline_print_node(n)).count();
 }

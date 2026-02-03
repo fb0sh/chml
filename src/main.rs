@@ -4,7 +4,9 @@ use clap::Parser;
 
 mod command;
 mod config;
+mod functions;
 mod procedure;
+mod schema;
 mod util;
 
 const CLI_NAME: &str = "chml";
