@@ -33,8 +33,8 @@ cargo install --path .
 在使用之前，需要设置环境变量：
 
 ```bash
-export CHML_API_BASE_URL="https://panel.chmlfrp.net"
-export CHML_API_TOKEN="your_api_token_here"
+export CHML_API_BASE_URL="http://cf-v2.uapis.cn"
+export CHML_API_TOKEN="YkJ31tP6Ev4HCSlP2D6Ifc0e"
 ```
 
 你可以将这些环境变量添加到你的 shell 配置文件中（如 `~/.zshrc` 或 `~/.bashrc`）。
@@ -47,7 +47,8 @@ export CHML_API_TOKEN="your_api_token_here"
 chml --help
 ```
 
-<!-- 截图位置 1: chml --help 的输出 -->
+<img width="670" height="562" alt="image" src="https://github.com/user-attachments/assets/ae8d6e19-1139-4583-be83-21891a83de6a" />
+
 
 ### 列出资源
 
@@ -57,7 +58,7 @@ chml --help
 chml ls
 ```
 
-<!-- 截图位置 2: chml ls 的输出 -->
+<img width="1301" height="557" alt="image" src="https://github.com/user-attachments/assets/a4427558-06d1-46f9-9a4e-214b0c368715" />
 
 仅列出隧道：
 
@@ -76,11 +77,18 @@ chml ls -d
 ```bash
 chml ls -n
 ```
+<img width="1255" height="782" alt="image" src="https://github.com/user-attachments/assets/800f6cbc-9728-459c-95d8-9ca3ebc887ad" />
 
 列出所有配置文件：
 
 ```bash
 chml ls -c
+```
+<img width="1056" height="131" alt="image" src="https://github.com/user-attachments/assets/0407a5f8-23f0-4380-b1e6-e653170c94b1" />
+
+列出全部
+```bash
+chml ls -tdnc
 ```
 
 ### 快速创建隧道
@@ -90,8 +98,13 @@ chml ls -c
 ```bash
 chml tcp 4444
 ```
+<img width="1327" height="295" alt="image" src="https://github.com/user-attachments/assets/b9a24024-c34e-4d01-ad04-1983b9e2b8a9" />
 
-<!-- 截图位置 3: chml tcp 4444 的输出 -->
+<img width="419" height="273" alt="image" src="https://github.com/user-attachments/assets/826703b0-de26-44c3-92fb-0ecc6f1bec27" />
+
+会自动进行删除隧道和配置文件
+
+<img width="1277" height="357" alt="image" src="https://github.com/user-attachments/assets/c9a9d387-1464-4559-ad49-26aaf9674d25" />
 
 创建 UDP 隧道：
 
@@ -99,14 +112,11 @@ chml tcp 4444
 chml udp 4444
 ```
 
-创建 HTTP 隧道：
+创建 HTTP 隧道：（直接使用tcp）
 
 ```bash
 chml http 8080
 ```
-
-<!-- 截图位置 4: chml http 8080 的输出 -->
-
 ### 添加隧道
 
 添加一个 TCP 隧道：
@@ -114,6 +124,9 @@ chml http 8080
 ```bash
 chml add tunnel --type tcp --lport 4444 --name my-tunnel
 ```
+
+<img width="1191" height="215" alt="image" src="https://github.com/user-attachments/assets/66ac13f6-ddac-4edf-893d-b0a4a7eb7c43" />
+
 
 添加一个 HTTP 隧道：
 
@@ -133,7 +146,6 @@ chml add tunnel --type tcp --lport 4444 --node "节点名称" --rport 88888
 chml add tunnel --type tcp --lport 4444 --lhost 127.0.0.1
 ```
 
-<!-- 截图位置 5: chml add tunnel 的输出 -->
 
 ### 连接隧道
 
@@ -142,8 +154,8 @@ chml add tunnel --type tcp --lport 4444 --lhost 127.0.0.1
 ```bash
 chml connect -t my-tunnel
 ```
+<img width="1226" height="264" alt="image" src="https://github.com/user-attachments/assets/2b6d0b62-2ba2-4942-b542-d9425aa5c35d" />
 
-<!-- 截图位置 6: chml connect -t my-tunnel 的输出 -->
 
 通过隧道 ID 连接：
 
@@ -151,7 +163,7 @@ chml connect -t my-tunnel
 chml connect -i 12345
 ```
 
-后台运行（守护进程模式）：
+后台运行（守护进程模式）：(暂不支持)
 
 ```bash
 chml connect -t my-tunnel --daemon
@@ -165,7 +177,8 @@ chml connect -t my-tunnel --daemon
 chml get -t my-tunnel
 ```
 
-<!-- 截图位置 7: chml get -t my-tunnel 的输出 -->
+<img width="1025" height="344" alt="image" src="https://github.com/user-attachments/assets/d196e487-c550-4039-b097-9837f867829c" />
+
 
 ### 删除隧道
 
@@ -180,8 +193,6 @@ chml rm -t my-tunnel
 ```bash
 chml rm --tunnel-id 12345
 ```
-
-<!-- 截图位置 8: chml rm -t my-tunnel 的输出 -->
 
 ### 静默模式
 
